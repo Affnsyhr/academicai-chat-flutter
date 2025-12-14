@@ -21,7 +21,7 @@ class _ChatPageState extends State<ChatPage> {
   // Controller untuk Input Teks
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isLoading = false;
+  String? _loadingMessage;
 
   @override
   void initState() {
@@ -57,19 +57,15 @@ class _ChatPageState extends State<ChatPage> {
     if (message.isEmpty) return;
 
     setState(() {
-      _isLoading = true; // Tampilkan loading
+      _loadingMessage = '🔄 Sedang menganalisis pertanyaan Anda…';
     });
 
     try {
       // Kirim pesan ke user UI dulu (Optimistic UI)
       _textController.clear();
 
-      // Kirim ke Gemini dan tunggu respon
-      // Sertakan prompt persona di awal pesan agar model berperilaku sebagai Academic Assistant
-      final promptMessage = '$academicAssistantPrompt\n\nUser: $message';
-      final response = await _chatSession.sendMessage(
-        Content.text(promptMessage),
-      );
+      // Kirim ke Gemini dan tunggu respon (kirim pesan user normal)
+      final response = await _chatSession.sendMessage(Content.text(message));
 
       // Respon otomatis masuk ke history _chatSession
       // Kita hanya perlu rebuild UI agar history tampil
@@ -81,7 +77,7 @@ class _ChatPageState extends State<ChatPage> {
       _showError(e.toString());
     } finally {
       setState(() {
-        _isLoading = false; // Matikan loading
+        _loadingMessage = null; // Matikan loading
       });
       _scrollToBottom();
     }
@@ -170,11 +166,22 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
 
-          // 2. LOADING INDICATOR
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: LinearProgressIndicator(),
+          // 2. LOADING INDICATOR (tampilkan teks jika ada)
+          if (_loadingMessage != null)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 8),
+                  Text(
+                    _loadingMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
             ),
 
           // 3. INPUT FIELD AREA
@@ -203,7 +210,7 @@ class _ChatPageState extends State<ChatPage> {
                 IconButton(
                   icon: const Icon(Icons.send),
                   color: Colors.deepPurple,
-                  onPressed: _isLoading ? null : _sendMessage,
+                  onPressed: _loadingMessage != null ? null : _sendMessage,
                 ),
               ],
             ),
